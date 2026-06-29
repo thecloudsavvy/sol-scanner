@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Tracked Tokens</h1>
+<table>
+  <thead>
+    <tr>
+      <th>Symbol</th><th>Liq</th><th>Vol 5m</th><th>B/S</th><th>Age (h)</th>
+      <th>Rugcheck</th><th>Alerts</th><th>Last scan</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in tokens %}
+    <tr>
+      <td>{{ t.symbol or t.address[:8] }}</td>
+      <td>${{ "{:,.0f}".format(t.liquidity_usd or 0) }}</td>
+      <td>${{ "{:,.0f}".format(t.volume_5m or 0) }}</td>
+      <td>{{ "%.2f"|format(t.buy_sell_ratio_5m or 0) }}</td>
+      <td>{{ "%.1f"|format(t.token_age_hours) if t.token_age_hours else "—" }}</td>
+      <td>{{ t.rugcheck_risk_level or "—" }}</td>
+      <td>{{ t.alerted_count or 0 }}</td>
+      <td>{{ t.last_scanned_at.strftime("%H:%M") if t.last_scanned_at else "—" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8">No tokens scanned yet</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Filter Settings (read-only)</h1>
+<div class="card">
+  <table>
+    <tbody>
+      <tr><td>SOL_SCANNER_ENABLED</td><td>{{ settings.SOL_SCANNER_ENABLED }}</td></tr>
+      <tr><td>SOL_SCAN_INTERVAL_SECONDS</td><td>{{ settings.SOL_SCAN_INTERVAL_SECONDS }}</td></tr>
+      <tr><td>SOL_MIN_LIQUIDITY_USD</td><td>${{ "{:,.0f}".format(settings.SOL_MIN_LIQUIDITY_USD) }}</td></tr>
+      <tr><td>SOL_MIN_VOLUME_5M</td><td>${{ "{:,.0f}".format(settings.SOL_MIN_VOLUME_5M) }}</td></tr>
+      <tr><td>SOL_MIN_BUY_SELL_RATIO</td><td>{{ settings.SOL_MIN_BUY_SELL_RATIO }}</td></tr>
+      <tr><td>SOL_MAX_TOKEN_AGE_HOURS</td><td>{{ settings.SOL_MAX_TOKEN_AGE_HOURS }}</td></tr>
+      <tr><td>SOL_ALERT_SCORE_THRESHOLD</td><td>{{ settings.SOL_ALERT_SCORE_THRESHOLD }}</td></tr>
+      <tr><td>SOL_COOLDOWN_HOURS</td><td>{{ settings.SOL_COOLDOWN_HOURS }}</td></tr>
+      <tr><td>SOL_MAX_ALERTS_PER_TOKEN</td><td>{{ settings.SOL_MAX_ALERTS_PER_TOKEN }}</td></tr>
+      <tr><td>RUGCHECK_CACHE_TTL_SECONDS</td><td>{{ settings.RUGCHECK_CACHE_TTL_SECONDS }}</td></tr>
+    </tbody>
+  </table>
+  <p class="muted">Edit <code>.env</code> and restart services to change thresholds.</p>
+</div>
+{% endblock %}

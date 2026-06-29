@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Recent Alerts</h1>
+<table>
+  <thead>
+    <tr>
+      <th>Time</th><th>Symbol</th><th>Score</th><th>Liq</th><th>Vol 5m</th>
+      <th>B/S</th><th>Source</th><th>Socials</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for alert, token in alerts %}
+    <tr>
+      <td>{{ alert.alerted_at.strftime("%Y-%m-%d %H:%M") if alert.alerted_at else "—" }}</td>
+      <td>{{ token.symbol if token else alert.token_address[:8] }}</td>
+      <td>{{ "%.0f"|format(alert.filter_score) }}</td>
+      <td>${{ "{:,.0f}".format(alert.liquidity_usd) }}</td>
+      <td>${{ "{:,.0f}".format(alert.volume_5m) }}</td>
+      <td>{{ "%.2f"|format(alert.buy_sell_ratio_5m) }}</td>
+      <td>{{ alert.source }}</td>
+      <td>
+        {% if alert.has_website %}🌐{% endif %}
+        {% if alert.has_twitter %}🐦{% endif %}
+        {% if alert.has_telegram %}💬{% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8">No alerts yet</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

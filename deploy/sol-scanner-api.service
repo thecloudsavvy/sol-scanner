@@ -1,0 +1,27 @@
+[Unit]
+Description=Solana Meme Coin Scanner API (dashboard)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=solscanner
+Group=solscanner
+WorkingDirectory=/opt/sol-scanner
+EnvironmentFile=/etc/sol-scanner/env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/sol-scanner/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8001
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sol-scanner-api
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/sol-scanner
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

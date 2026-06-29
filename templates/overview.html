@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Solana Scanner Overview</h1>
+<div class="grid">
+  <div class="card">
+    <h3>Scanner</h3>
+    <p>Enabled: {{ status.enabled }}</p>
+    <p>Last scan: {{ status.last_scan_at or "—" }}</p>
+    <p>Scan cycles: {{ status.scan_count }}</p>
+    <p>Interval: {{ status.scan_interval_seconds }}s</p>
+  </div>
+  <div class="card">
+    <h3>Today</h3>
+    <p>Alerts today: {{ alerts_today }}</p>
+    <p>Total alerts: {{ total_alerts }}</p>
+    <p>Tracked tokens: {{ total_tokens }}</p>
+  </div>
+</div>
+<h2>Top 1h Performers</h2>
+<table>
+  <thead>
+    <tr><th>Symbol</th><th>Return 1h</th><th>Score</th></tr>
+  </thead>
+  <tbody>
+    {% for perf, alert, token in top_performers %}
+    <tr>
+      <td>{{ token.symbol if token else alert.token_address[:8] }}</td>
+      <td>{{ "%.1f"|format(perf.return_1h) }}%</td>
+      <td>{{ "%.0f"|format(alert.filter_score) }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3">No performance data yet</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

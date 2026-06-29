@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Alert Performance</h1>
+<div class="grid">
+  {% for window, s in stats.items() %}
+  <div class="card">
+    <h3>{{ window }}</h3>
+    <p>Sample: {{ s.count }}</p>
+    <p>Win rate: {{ s.win_rate }}%</p>
+    <p>Avg return: {{ s.avg_return }}%</p>
+  </div>
+  {% endfor %}
+</div>
+<h2>Records</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Symbol</th><th>Entry</th><th>15m</th><th>1h</th><th>4h</th><th>24h</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for perf, alert, token in records %}
+    <tr>
+      <td>{{ token.symbol if token else perf.token_address[:8] }}</td>
+      <td>${{ "%.6f"|format(perf.price_at_alert) }}</td>
+      <td>{{ "%.1f"|format(perf.return_15m) if perf.return_15m is not none else "—" }}%</td>
+      <td>{{ "%.1f"|format(perf.return_1h) if perf.return_1h is not none else "—" }}%</td>
+      <td>{{ "%.1f"|format(perf.return_4h) if perf.return_4h is not none else "—" }}%</td>
+      <td>{{ "%.1f"|format(perf.return_24h) if perf.return_24h is not none else "—" }}%</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6">No records yet</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

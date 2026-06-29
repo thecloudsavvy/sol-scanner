@@ -1,0 +1,28 @@
+[Unit]
+Description=Solana Meme Coin Scanner (discovery + alerts)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=solscanner
+Group=solscanner
+WorkingDirectory=/opt/sol-scanner
+EnvironmentFile=/etc/sol-scanner/env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/sol-scanner/venv/bin/python /opt/sol-scanner/run_scanner.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sol-scanner
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/sol-scanner /var/log/sol-scanner
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
