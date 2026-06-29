@@ -10,6 +10,8 @@ from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_PASSWORDS = frozenset({"change-me", "changeme"})
+
 
 def basic_auth_enabled() -> bool:
     if settings.LIVE_TRADING_ENABLED:
@@ -22,13 +24,18 @@ def basic_auth_enabled() -> bool:
 def validate_security_config() -> None:
     if not settings.SOL_SCANNER_ENABLED and not settings.LIVE_TRADING_ENABLED:
         return
-    if settings.DASHBOARD_USERNAME and settings.DASHBOARD_PASSWORD:
-        return
-    logger.critical(
-        "SOL_SCANNER_ENABLED or LIVE_TRADING_ENABLED requires "
-        "DASHBOARD_USERNAME and DASHBOARD_PASSWORD"
-    )
-    sys.exit(1)
+    if not settings.DASHBOARD_USERNAME or not settings.DASHBOARD_PASSWORD:
+        logger.critical(
+            "SOL_SCANNER_ENABLED or LIVE_TRADING_ENABLED requires "
+            "DASHBOARD_USERNAME and DASHBOARD_PASSWORD"
+        )
+        sys.exit(1)
+    if settings.DASHBOARD_PASSWORD.lower() in _DEFAULT_PASSWORDS:
+        logger.critical(
+            "DASHBOARD_PASSWORD must be changed from the default placeholder "
+            "when SOL_SCANNER_ENABLED or LIVE_TRADING_ENABLED"
+        )
+        sys.exit(1)
 
 
 async def dashboard_basic_auth_middleware(request: Request, call_next):

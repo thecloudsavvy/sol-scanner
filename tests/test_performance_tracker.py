@@ -74,3 +74,22 @@ class TestPerformanceTracker:
             update_performance_records(db)
         perf = db.query(SolAlertPerformance).first()
         assert perf.price_15m is None
+
+    def test_all_due_intervals_updated_in_one_pass(self, db):
+        _seed_alert(db, price_at_alert=1.0, alerted_minutes_ago=25 * 60)
+        with patch(
+            "app.services.performance_tracker.dex_service.fetch_token_details",
+            return_value={"price_usd": 1.5},
+        ) as mock_fetch:
+            update_performance_records(db)
+            mock_fetch.assert_called_once()
+
+        perf = db.query(SolAlertPerformance).first()
+        assert perf.price_15m == 1.5
+        assert perf.price_1h == 1.5
+        assert perf.price_4h == 1.5
+        assert perf.price_24h == 1.5
+        assert perf.return_15m == pytest.approx(50.0)
+        assert perf.return_1h == pytest.approx(50.0)
+        assert perf.return_4h == pytest.approx(50.0)
+        assert perf.return_24h == pytest.approx(50.0)

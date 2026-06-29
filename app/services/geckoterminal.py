@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 SOLANA_NETWORK = "solana"
 SOURCE_TRENDING = "geckoterminal_trending"
 SOURCE_NEW = "geckoterminal_new"
+SOURCE_RAYDIUM = "geckoterminal_raydium"
+SOURCE_PUMPFUN = "geckoterminal_pumpfun"
 
 
 class GeckoTerminalService:
@@ -71,7 +73,7 @@ class GeckoTerminalService:
         return None
 
     def _fetch_pool_tokens(self, endpoint: str, source: str) -> List[Tuple[str, str]]:
-        url = f"{self.base_url}/networks/{SOLANA_NETWORK}/{endpoint}?page=1"
+        url = f"{self.base_url}/{endpoint}?page=1"
         data = self._get_json(url)
         if not data:
             return []
@@ -86,10 +88,28 @@ class GeckoTerminalService:
         return results
 
     def fetch_trending_tokens(self) -> List[Tuple[str, str]]:
-        return self._fetch_pool_tokens("trending_pools", SOURCE_TRENDING)
+        return self._fetch_pool_tokens(
+            f"networks/{SOLANA_NETWORK}/trending_pools",
+            SOURCE_TRENDING,
+        )
 
     def fetch_new_pool_tokens(self) -> List[Tuple[str, str]]:
-        return self._fetch_pool_tokens("new_pools", SOURCE_NEW)
+        return self._fetch_pool_tokens(
+            f"networks/{SOLANA_NETWORK}/new_pools",
+            SOURCE_NEW,
+        )
+
+    def fetch_raydium_pool_tokens(self) -> List[Tuple[str, str]]:
+        return self._fetch_pool_tokens(
+            f"networks/{SOLANA_NETWORK}/dexes/raydium/pools",
+            SOURCE_RAYDIUM,
+        )
+
+    def fetch_pumpfun_pool_tokens(self) -> List[Tuple[str, str]]:
+        return self._fetch_pool_tokens(
+            f"networks/{SOLANA_NETWORK}/dexes/pump-fun/pools",
+            SOURCE_PUMPFUN,
+        )
 
     def discover(self) -> Dict[str, str]:
         if self._circuit_is_open():
@@ -97,7 +117,13 @@ class GeckoTerminalService:
             return {}
 
         candidates: Dict[str, str] = {}
-        for fetch_fn in (self.fetch_trending_tokens, self.fetch_new_pool_tokens):
+        fetch_fns = (
+            self.fetch_trending_tokens,
+            self.fetch_new_pool_tokens,
+            self.fetch_raydium_pool_tokens,
+            self.fetch_pumpfun_pool_tokens,
+        )
+        for fetch_fn in fetch_fns:
             for address, source in fetch_fn():
                 if address not in candidates:
                     candidates[address] = source

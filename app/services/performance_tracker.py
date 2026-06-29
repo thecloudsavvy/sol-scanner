@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -18,15 +18,16 @@ INTERVAL_SCHEDULE = [
 ]
 
 
-def _next_due_interval(
+def _due_intervals(
     perf: SolAlertPerformance,
     alerted_at: datetime,
     now: datetime,
-) -> Optional[Tuple[str, str]]:
+) -> List[Tuple[str, str]]:
+    due: List[Tuple[str, str]] = []
     for delta, price_field, return_field in INTERVAL_SCHEDULE:
         if now - alerted_at >= delta and getattr(perf, price_field) is None:
-            return price_field, return_field
-    return None
+            due.append((price_field, return_field))
+    return due
 
 
 def _compute_return(entry: float, current: float) -> Optional[float]:
@@ -61,35 +62,37 @@ def update_performance_records(db: Session) -> None:
         if alerted_at.tzinfo is None:
             alerted_at = alerted_at.replace(tzinfo=timezone.utc)
 
-        due = _next_due_interval(perf, alerted_at, now)
-        if not due:
+        intervals = _due_intervals(perf, alerted_at, now)
+        if not intervals:
             continue
 
-        price_field, return_field = due
         details = dex_service.fetch_token_details(perf.token_address)
         if not details or not details.get("price_usd"):
+            due_fields = ", ".join(price_field for price_field, _ in intervals)
             logger.warning(
                 "Price fetch failed for %s (%s) — will retry",
                 perf.token_address,
-                price_field,
+                due_fields,
             )
             continue
 
         current_price = float(details["price_usd"])
-        setattr(perf, price_field, current_price)
-        ret = _compute_return(perf.price_at_alert, current_price)
-        setattr(perf, return_field, ret)
+        updated_fields: List[str] = []
+        for price_field, return_field in intervals:
+            setattr(perf, price_field, current_price)
+            ret = _compute_return(perf.price_at_alert, current_price)
+            setattr(perf, return_field, ret)
+            updated_fields.append(price_field)
         perf.last_updated_at = now
 
         try:
             db.add(perf)
             db.commit()
             logger.info(
-                "Updated %s for alert %s: price=%s return=%s",
-                price_field,
+                "Updated %s for alert %s: price=%s",
+                ", ".join(updated_fields),
                 perf.alert_id,
                 current_price,
-                ret,
             )
         except Exception as exc:
             db.rollback()

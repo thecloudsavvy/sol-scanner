@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
+from app.auth import validate_security_config
 from app.config.settings import settings
 from app.database.session import SessionLocal, init_db
 from app.models.alert import SolAlert
@@ -14,9 +15,12 @@ from app.models.token import SolToken
 from app.services.alerter import format_alert_message, send_sol_alert
 from app.services.dexscreener import dex_service
 from app.services.geckoterminal import geckoterminal_service
+from app.services.jupiter import jupiter_service
 from app.services.performance_tracker import update_performance_records
 from app.services.rugcheck import rugcheck_service
-from app.services.scorer import _pair_age_hours, compute_filter_score
+from app.services.score_tuning import refresh_score_weight_multipliers
+from app.services.scorer import compute_filter_score
+from app.utils.pair_time import pair_age_hours, parse_pair_created_at
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +35,6 @@ def get_scanner_status() -> Dict[str, Any]:
         "scan_count": _scan_count,
         "scan_interval_seconds": settings.SOL_SCAN_INTERVAL_SECONDS,
     }
-
-
-def _parse_pair_created_at(value: Any) -> Optional[datetime]:
-    if value is None:
-        return None
-    if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
-    if isinstance(value, (int, float)):
-        return datetime.fromtimestamp(value / 1000, tz=timezone.utc)
-    return None
 
 
 def _upsert_token(db: Session, details: Dict[str, Any], source: str) -> SolToken:
@@ -68,8 +62,8 @@ def _upsert_token(db: Session, details: Dict[str, Any], source: str) -> SolToken
     token.pair_address = details.get("pair_address")
     token.dex_id = details.get("dex_id")
     token.quote_token_address = details.get("quote_token_address")
-    token.pair_created_at = _parse_pair_created_at(details.get("pair_created_at"))
-    token.token_age_hours = _pair_age_hours(details.get("pair_created_at"))
+    token.pair_created_at = parse_pair_created_at(details.get("pair_created_at"))
+    token.token_age_hours = pair_age_hours(details.get("pair_created_at"))
     token.has_website = 1 if details.get("has_website") else 0
     token.has_twitter = 1 if details.get("has_twitter") else 0
     token.has_telegram = 1 if details.get("has_telegram") else 0
@@ -178,6 +172,20 @@ def process_token(db: Session, address: str, source: str) -> None:
         db.commit()
         return
 
+    jupiter = jupiter_service.validate_routable(address)
+    if not jupiter.passed:
+        _record_observation(
+            db,
+            address,
+            source,
+            "filter_rejected",
+            jupiter.skip_reason,
+            result.score,
+            details,
+        )
+        db.commit()
+        return
+
     if _cooldown_blocks_alert(token):
         _record_observation(
             db,
@@ -263,6 +271,11 @@ def process_token(db: Session, address: str, source: str) -> None:
 def run_scan_cycle(db: Session) -> int:
     global _last_scan_at, _scan_count
 
+    try:
+        refresh_score_weight_multipliers(db)
+    except Exception as exc:
+        logger.exception("Score tuning refresh error: %s", exc)
+
     candidates = geckoterminal_service.discover()
     logger.info("Scan cycle: %s candidates from GeckoTerminal", len(candidates))
 
@@ -289,6 +302,7 @@ def run_standalone_loop(interval_seconds: Optional[int] = None) -> None:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
     init_db()
+    validate_security_config()
 
     if not settings.SOL_SCANNER_ENABLED:
         logger.warning("SOL_SCANNER_ENABLED=false — scanner idle")

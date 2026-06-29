@@ -66,12 +66,13 @@ class DexScreenerService:
         symbol = (quote.get("symbol") or "").upper()
         return symbol in SOL_QUOTE_SYMBOLS
 
+    def _solana_pairs(self, pairs: List[dict]) -> List[dict]:
+        return [p for p in pairs if p.get("chainId") == TARGET_CHAIN]
+
     def _select_primary_pair(self, pairs: List[dict]) -> Optional[dict]:
-        sol_pairs = [
-            p for p in pairs if p.get("chainId") == TARGET_CHAIN and self._is_sol_quote_pair(p)
-        ]
+        sol_pairs = [p for p in self._solana_pairs(pairs) if self._is_sol_quote_pair(p)]
         if not sol_pairs:
-            sol_pairs = [p for p in pairs if p.get("chainId") == TARGET_CHAIN]
+            sol_pairs = self._solana_pairs(pairs)
         if not sol_pairs:
             return None
         sol_pairs.sort(
@@ -79,6 +80,26 @@ class DexScreenerService:
             reverse=True,
         )
         return sol_pairs[0]
+
+    @staticmethod
+    def _pair_liquidity_usd(pair: dict) -> float:
+        return float(pair.get("liquidity", {}).get("usd", 0) or 0)
+
+    @staticmethod
+    def _pair_volume_5m(pair: dict) -> float:
+        return float(pair.get("volume", {}).get("m5", 0) or 0)
+
+    def _liquidity_concentration(self, sol_pairs: List[dict], primary_pair: dict) -> float:
+        total_liq = sum(self._pair_liquidity_usd(p) for p in sol_pairs)
+        if total_liq <= 0:
+            return 1.0
+        return self._pair_liquidity_usd(primary_pair) / total_liq
+
+    @staticmethod
+    def _buy_sell_ratio(buys: int, sells: int) -> float:
+        if sells > 0:
+            return buys / sells
+        return float(buys)
 
     @staticmethod
     def _extract_socials(data: dict) -> Dict[str, Any]:
@@ -118,6 +139,7 @@ class DexScreenerService:
             return None
 
         pairs = data.get("pairs") or []
+        sol_pairs = self._solana_pairs(pairs)
         primary_pair = self._select_primary_pair(pairs)
         if not primary_pair:
             return None
@@ -130,7 +152,12 @@ class DexScreenerService:
 
         buys_5m = int(txns.get("m5", {}).get("buys", 0) or 0)
         sells_5m = int(txns.get("m5", {}).get("sells", 0) or 0)
-        buy_sell_ratio_5m = buys_5m / sells_5m if sells_5m > 0 else float(buys_5m)
+        buys_1h = int(txns.get("h1", {}).get("buys", 0) or 0)
+        sells_1h = int(txns.get("h1", {}).get("sells", 0) or 0)
+
+        liquidity_usd = float(liquidity.get("usd") or 0)
+        volume_5m = float(volume.get("m5") or 0)
+        volume_liquidity_ratio_5m = volume_5m / liquidity_usd if liquidity_usd > 0 else 0.0
 
         socials = self._extract_socials(data)
 
@@ -141,17 +168,24 @@ class DexScreenerService:
             "symbol": base_info.get("symbol"),
             "market_cap": float(primary_pair.get("marketCap") or 0),
             "fdv": float(primary_pair.get("fdv") or 0),
-            "liquidity_usd": float(liquidity.get("usd") or 0),
+            "liquidity_usd": liquidity_usd,
+            "total_liquidity_usd": sum(self._pair_liquidity_usd(p) for p in sol_pairs),
+            "primary_liquidity_share": self._liquidity_concentration(sol_pairs, primary_pair),
+            "solana_pair_count": len(sol_pairs),
             "price_usd": float(primary_pair.get("priceUsd") or 0),
-            "volume_5m": float(volume.get("m5") or 0),
+            "volume_5m": volume_5m,
             "volume_1h": float(volume.get("h1") or 0),
             "volume_24h": float(volume.get("h24") or 0),
+            "volume_liquidity_ratio_5m": volume_liquidity_ratio_5m,
             "price_change_5m": float(price_change.get("m5") or 0),
             "price_change_1h": float(price_change.get("h1") or 0),
             "price_change_24h": float(price_change.get("h24") or 0),
             "buys_5m": buys_5m,
             "sells_5m": sells_5m,
-            "buy_sell_ratio_5m": buy_sell_ratio_5m,
+            "buy_sell_ratio_5m": self._buy_sell_ratio(buys_5m, sells_5m),
+            "buys_1h": buys_1h,
+            "sells_1h": sells_1h,
+            "buy_sell_ratio_1h": self._buy_sell_ratio(buys_1h, sells_1h),
             "pair_created_at": primary_pair.get("pairCreatedAt"),
             "pair_address": primary_pair.get("pairAddress"),
             "dex_id": primary_pair.get("dexId"),

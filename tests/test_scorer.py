@@ -3,14 +3,14 @@ from app.services.scorer import compute_filter_score, score_price_action
 
 
 class TestScorer:
-    def test_max_score_is_100(self):
+    def test_strong_setup_scores_high(self):
         result = compute_filter_score(base_details(), good_rugcheck())
         assert result.passed
-        assert result.score == 100.0
+        assert result.score >= 80.0
 
     def test_liquidity_floor_rejects_before_scoring(self):
         result = compute_filter_score(
-            base_details(liquidity_usd=50_000),
+            base_details(liquidity_usd=150_000),
             good_rugcheck(),
         )
         assert not result.passed
@@ -33,9 +33,12 @@ class TestScorer:
     def test_threshold_gates_alerts(self):
         borderline = compute_filter_score(
             base_details(
-                liquidity_usd=110_000,
-                volume_5m=6_000,
-                buy_sell_ratio_5m=1.1,
+                liquidity_usd=220_000,
+                volume_5m=16_000,
+                buy_sell_ratio_5m=1.2,
+                buy_sell_ratio_1h=1.0,
+                buys_5m=10,
+                sells_5m=8,
                 price_change_5m=2.0,
                 price_change_1h=0.0,
                 price_change_24h=150.0,
